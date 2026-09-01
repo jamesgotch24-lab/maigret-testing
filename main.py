@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -212,6 +213,7 @@ def persist_results(search_id: int, results: dict[str, Any]) -> None:
 def run_maigret(search_id: int, username: str, options: dict[str, Any]) -> None:
 	notify = ProgressNotify(search_id)
 	update_search(search_id, status="running", started_at=utcnow())
+	partial_results: dict[str, Any] = {}
 	try:
 		async def execute() -> dict[str, Any]:
 			settings = Settings()
@@ -220,24 +222,25 @@ def run_maigret(search_id: int, username: str, options: dict[str, Any]) -> None:
 			top = 999999999 if options.get("all_sites") else options["top_sites"]
 			sites = database.ranked_sites_dict(top=top, tags=options.get("tags", []), excluded_tags=options.get("excluded_tags", []), names=options.get("site_list", []), disabled=False, id_type="username")
 			notify.set_total(len(sites))
-			return await maigret.search(username=username, site_dict=sites, timeout=options["timeout"], logger=logger, id_type="username", query_notify=notify, no_progressbar=True, is_parsing_enabled=options["extract"], recursive_search_enabled=options["recursive"], check_domains=options["check_domains"], keywords=options.get("keywords") or None, cloudflare_bypass=build_cloudflare_bypass_config(settings), output_container=partial)
+			return await maigret.search(username=username, site_dict=sites, timeout=options["timeout"], logger=logger, id_type="username", query_notify=notify, no_progressbar=True, is_parsing_enabled=options["extract"], recursive_search_enabled=options["recursive"], check_domains=options["check_domains"], keywords=options.get("keywords") or None, cloudflare_bypass=build_cloudflare_bypass_config(settings), output_container=partial_results)
 		results = asyncio.run(execute())
 		persist_results(search_id, results)
 		update_search(search_id, status="completed", progress=100, finished_at=utcnow(), current_site="")
 	except Exception as exc:
 		logger.exception("Dashboard search %s failed", search_id)
-		if partial:
-			persist_results(search_id, partial)
+		if partial_results:
+			persist_results(search_id, partial_results)
 		update_search(search_id, status="failed", finished_at=utcnow(), error_message=str(exc))
 
 
-app = FastAPI(title="Maigret Intelligence Dashboard", version="1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-
-@app.on_event("startup")
-def startup() -> None:
+@asynccontextmanager
+async def lifespan(_: FastAPI):
 	SQLModel.metadata.create_all(engine)
+	yield
+
+
+app = FastAPI(title="Maigret Intelligence Dashboard", version="1.0", lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
 @app.get("/", include_in_schema=False)
@@ -404,4 +407,4 @@ def report(search_id: int, format: str = Query(default="json", pattern="^(json|c
 
 if __name__ == "__main__":
 	import uvicorn
-	uvicorn.run("main:app", host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "8000")), reload=False)
+	uvicorn.run(app, host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "8000")), reload=False)
