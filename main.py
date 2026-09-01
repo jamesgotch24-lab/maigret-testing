@@ -6,9 +6,13 @@ import io
 import json
 import logging
 import os
+import shlex
+import subprocess
+import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Optional
 
 import maigret
@@ -37,6 +41,17 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
 def utcnow() -> datetime:
 	return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def cleanup_demo_records() -> None:
+	with Session(engine) as session:
+		searches = session.exec(select(Search).where(Search.username == "alice")).all()
+		for search in searches:
+			session.delete(search)
+		investigations = session.exec(select(Investigation).where(Investigation.primary_username == "alice")).all()
+		for investigation in investigations:
+			session.delete(investigation)
+		session.commit()
 
 
 class Investigation(SQLModel, table=True):
@@ -126,10 +141,23 @@ class SearchCreate(BaseModel):
 	extract: bool = True
 	keywords: list[str] = []
 	check_domains: bool = False
+	report_format: str = "json"
+	print_not_found: bool = False
+	print_errors: bool = False
+	verbose: bool = False
+	no_progressbar: bool = False
+	use_disabled_sites: bool = False
+	proxy: Optional[str] = None
+	tor_proxy: Optional[str] = None
+	i2p_proxy: Optional[str] = None
 
 
 class NoteCreate(BaseModel):
 	body: str = PydanticField(min_length=1, max_length=10000)
+
+
+class TerminalCommand(BaseModel):
+	command: str = PydanticField(min_length=1, max_length=5000)
 
 
 class ResultUpdate(BaseModel):
@@ -179,8 +207,52 @@ def serialize_result(result: Result) -> dict[str, Any]:
 	return {"id": result.id, "site": result.site_name, "username": result.username, "url": result.url, "url_main": result.url_main, "status": result.status, "status_text": result.status_text, "http_status": result.http_status, "query_time": result.query_time, "rank": result.rank, "tags": json_load(result.tags_json, []), "profile": json_load(result.profile_json, {}), "discovered_at": result.discovered_at.isoformat()}
 
 
+def build_maigret_cli_command(username: str, options: dict[str, Any]) -> str:
+	parts = ["maigret", username]
+	if options.get("all_sites"):
+		parts.append("--all-sites")
+	elif options.get("top_sites"):
+		parts.extend(["--top-sites", str(options["top_sites"])])
+	if options.get("tags"):
+		parts.extend(["--tags", ",".join(str(value) for value in options["tags"])])
+	if options.get("excluded_tags"):
+		parts.extend(["--exclude-tags", ",".join(str(value) for value in options["excluded_tags"])])
+	if options.get("site_list"):
+		for site in options["site_list"]:
+			parts.extend(["--site", str(site)])
+	if not options.get("recursive", True):
+		parts.append("--disable-recursive-search")
+	if options.get("permute"):
+		parts.append("--permute")
+	if options.get("extract") is False:
+		parts.append("--disable-extracting")
+	if options.get("check_domains"):
+		parts.append("--with-domains")
+	if options.get("print_not_found"):
+		parts.append("--print-not-found")
+	if options.get("print_errors"):
+		parts.append("--print-errors")
+	if options.get("verbose"):
+		parts.append("--verbose")
+	if options.get("use_disabled_sites"):
+		parts.append("--use-disabled-sites")
+	if options.get("no_progressbar"):
+		parts.append("--no-progressbar")
+	if options.get("proxy"):
+		parts.extend(["--proxy", str(options["proxy"])])
+	if options.get("tor_proxy"):
+		parts.extend(["--tor-proxy", str(options["tor_proxy"])])
+	if options.get("i2p_proxy"):
+		parts.extend(["--i2p-proxy", str(options["i2p_proxy"])])
+	report_format = options.get("report_format") or (options.get("report_formats") or [None])[0]
+	if report_format:
+		parts.append(f"--{report_format}")
+	return " ".join(shlex.quote(str(part)) for part in parts)
+
+
 def serialize_search(search: Search) -> dict[str, Any]:
-	return {"id": search.id, "investigation_id": search.investigation_id, "username": search.username, "options": json_load(search.options_json, {}), "status": search.status, "progress": search.progress, "total_sites": search.total_sites, "sites_checked": search.sites_checked, "positive_count": search.positive_count, "negative_count": search.negative_count, "error_count": search.error_count, "current_site": search.current_site, "error_message": search.error_message, "started_at": search.started_at.isoformat() if search.started_at else None, "finished_at": search.finished_at.isoformat() if search.finished_at else None, "created_at": search.created_at.isoformat()}
+	options = json_load(search.options_json, {})
+	return {"id": search.id, "investigation_id": search.investigation_id, "username": search.username, "options": options, "command": build_maigret_cli_command(search.username, options), "status": search.status, "progress": search.progress, "total_sites": search.total_sites, "sites_checked": search.sites_checked, "positive_count": search.positive_count, "negative_count": search.negative_count, "error_count": search.error_count, "current_site": search.current_site, "error_message": search.error_message, "started_at": search.started_at.isoformat() if search.started_at else None, "finished_at": search.finished_at.isoformat() if search.finished_at else None, "created_at": search.created_at.isoformat()}
 
 
 def persist_results(search_id: int, results: dict[str, Any]) -> None:
@@ -220,11 +292,12 @@ def run_maigret(search_id: int, username: str, options: dict[str, Any]) -> None:
 			settings.load()
 			database = MaigretDatabase().load_from_path(str(MAIGRET_DB))
 			top = 999999999 if options.get("all_sites") else options["top_sites"]
-			sites = database.ranked_sites_dict(top=top, tags=options.get("tags", []), excluded_tags=options.get("excluded_tags", []), names=options.get("site_list", []), disabled=False, id_type="username")
+			sites = database.ranked_sites_dict(top=top, tags=options.get("tags", []), excluded_tags=options.get("excluded_tags", []), names=options.get("site_list", []), disabled=options.get("use_disabled_sites", False), id_type="username")
 			notify.set_total(len(sites))
-			return await maigret.search(username=username, site_dict=sites, timeout=options["timeout"], logger=logger, id_type="username", query_notify=notify, no_progressbar=True, is_parsing_enabled=options["extract"], recursive_search_enabled=options["recursive"], check_domains=options["check_domains"], keywords=options.get("keywords") or None, cloudflare_bypass=build_cloudflare_bypass_config(settings), output_container=partial_results)
+			return await maigret.search(username=username, site_dict=sites, timeout=options["timeout"], logger=logger, id_type="username", query_notify=notify, no_progressbar=bool(options.get("no_progressbar")), is_parsing_enabled=options.get("extract", True), recursive_search_enabled=options.get("recursive", True), check_domains=options.get("check_domains", False), keywords=options.get("keywords") or None, cloudflare_bypass=build_cloudflare_bypass_config(settings), output_container=partial_results, proxy=options.get("proxy"), tor_proxy=options.get("tor_proxy"), i2p_proxy=options.get("i2p_proxy"), forced=options.get("use_disabled_sites", False))
 		results = asyncio.run(execute())
 		persist_results(search_id, results)
+		_update_search_report_metadata(search_id, username, options, results)
 		update_search(search_id, status="completed", progress=100, finished_at=utcnow(), current_site="")
 	except Exception as exc:
 		logger.exception("Dashboard search %s failed", search_id)
@@ -233,9 +306,23 @@ def run_maigret(search_id: int, username: str, options: dict[str, Any]) -> None:
 		update_search(search_id, status="failed", finished_at=utcnow(), error_message=str(exc))
 
 
+def _update_search_report_metadata(search_id: int, username: str, options: dict[str, Any], results: dict[str, Any]) -> None:
+	formats = [str(format_name).strip().lower() for format_name in (options.get("report_formats") or [options.get("report_format")]) if format_name and str(format_name).strip()]
+	if not formats:
+		formats = ["json"]
+	with Session(engine) as session:
+		search = session.get(Search, search_id)
+		if not search:
+			return
+		search.options_json = json.dumps({**json_load(search.options_json, {}), "report_formats": formats, "command": build_maigret_cli_command(username, {**options, "report_format": formats[0]})})
+		session.commit()
+
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
 	SQLModel.metadata.create_all(engine)
+	cleanup_demo_records()
 	yield
 
 
@@ -296,6 +383,8 @@ def create_search(payload: SearchCreate, background_tasks: BackgroundTasks) -> d
 	username = payload.username.strip()
 	if not username or any(char in username for char in "\x00\r\n"): raise HTTPException(422, "Username is invalid")
 	options = payload.model_dump(exclude={"username", "investigation_id", "title"})
+	if not options.get("report_format"):
+		options["report_format"] = "json"
 	with Session(engine) as session:
 		investigation = session.get(Investigation, payload.investigation_id) if payload.investigation_id else None
 		if not investigation:
@@ -365,6 +454,18 @@ def add_result_note(result_id: int, payload: NoteCreate) -> dict[str, Any]:
 		note = AnalystNote(result_id=result_id, body=payload.body.strip()); session.add(note); session.commit(); session.refresh(note); return note.model_dump()
 
 
+@app.post("/api/terminal/execute")
+def execute_terminal_command(payload: TerminalCommand) -> dict[str, Any]:
+	command = payload.command.strip()
+	if not command:
+		raise HTTPException(422, "Command is required")
+	completed = subprocess.run(command, shell=True, capture_output=True, text=True, cwd=str(ROOT), timeout=120)
+	output = (completed.stdout or "") + (completed.stderr or "")
+	if output and not output.endswith("\n"):
+		output += "\n"
+	return {"command": command, "exit_code": completed.returncode, "output": output}
+
+
 @app.get("/api/statistics")
 def statistics() -> dict[str, Any]: return dashboard()
 
@@ -394,15 +495,37 @@ def graph() -> dict[str, Any]:
 
 
 @app.get("/api/searches/{search_id}/report")
-def report(search_id: int, format: str = Query(default="json", pattern="^(json|csv)$")) -> Any:
+def report(search_id: int, format: str = Query(default="json", pattern="^(json|csv|pdf|html|txt|md)$")) -> Any:
 	with Session(engine) as session:
 		search = session.get(Search, search_id)
 		if not search: raise HTTPException(404, "Search not found")
 		results = session.exec(select(Result).where(Result.search_id == search_id)).all()
 		if format == "json": return {"search": serialize_search(search), "results": [serialize_result(item) for item in results]}
-		output = io.StringIO(); writer = csv.writer(output); writer.writerow(["site", "username", "url", "status", "http_status", "rank"])
-		for item in results: writer.writerow([item.site_name, item.username, item.url, item.status, item.http_status or "", item.rank or ""])
-		return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="maigret-search-{search_id}.csv"'})
+		if format == "csv":
+			output = io.StringIO(); writer = csv.writer(output); writer.writerow(["site", "username", "url", "status", "http_status", "rank"])
+			for item in results: writer.writerow([item.site_name, item.username, item.url, item.status, item.http_status or "", item.rank or ""])
+			return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="maigret-search-{search_id}.csv"'})
+		if format == "pdf":
+			result_map = {}
+			for item in results:
+				result_map[item.site_name] = {
+					"status": SimpleNamespace(status=item.status, ids_data=json_load(item.profile_json, {}), tags=json_load(item.tags_json, []), error=None, context=item.status_text),
+					"url_user": item.url,
+					"url_main": item.url_main,
+					"http_status": item.http_status,
+					"is_similar": False,
+				}
+			context = maigret.report.generate_report_context([(search.username, "username", result_map)])
+			with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+				file_path = Path(tmp.name)
+			try:
+				maigret.report.save_pdf_report(str(file_path), context)
+			except RuntimeError as exc:
+				raise HTTPException(status_code=400, detail=str(exc)) from exc
+			return FileResponse(file_path, media_type="application/pdf", filename=f"maigret-search-{search_id}.pdf")
+		output = io.StringIO();
+		for item in results: output.write(f"{item.site_name}\t{item.username}\t{item.url}\t{item.status}\t{item.http_status or ''}\n")
+		return StreamingResponse(iter([output.getvalue()]), media_type="text/plain", headers={"Content-Disposition": f'attachment; filename="maigret-search-{search_id}.txt"'})
 
 
 if __name__ == "__main__":
