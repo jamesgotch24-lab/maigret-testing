@@ -137,6 +137,59 @@ Professional OSINT and social-media analysis tools built on Maigret:
 
 [Full console output](https://raw.githubusercontent.com/soxoj/maigret/main/static/recursive_search.md)
 
+## Dashboard
+
+This repository includes a FastAPI + SQLModel investigation dashboard in `main.py`. It uses Maigret's existing asynchronous search engine, stores searches and findings in SQLite, tracks progress, and serves the custom interface from `static2/`.
+
+### Run the dashboard locally
+
+From the repository root:
+
+```bash
+pip install -e .
+python main.py
+```
+
+Then open [http://127.0.0.1:8000](http://127.0.0.1:8000).
+
+For development with automatic reload:
+
+```bash
+uvicorn main:app --reload
+```
+
+The dashboard workflow is:
+
+1. Enter a username and choose any advanced collection options.
+2. Start an investigation.
+3. Watch site checks and progress update while Maigret runs in the background.
+4. Review found accounts, profile data, source URLs, tags, and discovered identities.
+5. Add analyst notes and download a JSON or CSV report.
+
+Dashboard data is persisted in `maigret-dashboard.db` by default. Set `MAIGRET_DASHBOARD_DB` to use another SQLite file. The application also accepts `HOST`, `PORT`, and `LOG_LEVEL` environment variables.
+
+The dashboard API includes:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/dashboard` | Database-backed metrics and recent activity |
+| `GET/POST /api/investigations` | List or create cases |
+| `GET/DELETE /api/investigations/{id}` | Inspect or remove a case |
+| `POST /api/search` | Start a real Maigret search |
+| `GET /api/searches/{id}/status` | Read live job progress |
+| `GET /api/searches/{id}/results` | Retrieve persisted findings |
+| `GET /api/results/{id}` | Open evidence and extracted profile data |
+| `POST /api/results/{id}/notes` | Save an analyst note |
+| `GET /api/searches/{id}/report?format=json` | Download JSON results |
+| `GET /api/searches/{id}/report?format=csv` | Download CSV results |
+| `GET /api/graph` | Read persisted identity relationships |
+
+The dashboard's full implementation notes are in [docs/dashboard.md](docs/dashboard.md).
+
+### Dashboard configuration boundaries
+
+Proxy, Tor, I2P, AI credentials, and cookie files remain server-side configuration. Secrets are not placed in the frontend. The primary dashboard form exposes only collection options supported by the application, including site limits, tags, recursive extraction, and profile extraction.
+
 ## Installation
 
 Already ran the [In one minute](#one-minute) steps? You're set. Below are alternative methods.

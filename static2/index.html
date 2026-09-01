@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Maigret | Intelligence Workspace</title>
+	<link rel="icon" href="/static2/maigret%20logo%20shield.png" type="image/png">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="/static2/styles.css">
+</head>
+<body>
+	<div class="app-shell">
+		<aside class="sidebar">
+			<a class="brand" href="#dashboard" data-view="dashboard"><img class="brand-logo brand-logo-full" src="/static2/maigret%20logo.png" alt="Maigret"><img class="brand-logo brand-logo-shield" src="/static2/maigret%20logo%20shield.png" alt="Maigret shield"></a>
+			<p class="eyebrow">INTELLIGENCE WORKSPACE</p>
+			<nav aria-label="Primary navigation">
+				<button class="nav-item active" data-view="dashboard"><span>01</span>Overview</button>
+				<button class="nav-item" data-view="investigations"><span>02</span>Investigations</button>
+				<button class="nav-item" data-view="searches"><span>03</span>Search history</button>
+				<button class="nav-item" data-view="graph"><span>04</span>Identity graph</button>
+			</nav>
+			<div class="sidebar-foot"><span class="pulse"></span><span>Engine online</span><small>Maigret 0.6.4</small></div>
+		</aside>
+		<main class="main-content">
+			<header class="topbar"><div><p class="eyebrow" id="view-kicker">FIELD NOTES / 01</p><h1 id="view-title">Investigation overview</h1></div><div class="top-actions"><button class="icon-button" id="refresh-button" aria-label="Refresh dashboard" title="Refresh">↻</button><button class="button button-primary" id="new-search-button">+ Start investigation</button></div></header>
+			<section id="view-dashboard" class="view active-view">
+				<div class="hero-strip"><div><p class="eyebrow">LIVE COLLECTION CONSOLE</p><h2>Find the signal<br><em>behind a username.</em></h2><p class="hero-copy">Run a real Maigret scan across public platforms and preserve the evidence in one case file.</p></div><div class="hero-coordinate">45° 31' N<br><span>COLLECTION READY</span></div></div>
+				<div id="metrics" class="metric-grid" aria-live="polite"></div>
+				<div class="workspace-grid"><section class="panel activity-panel"><div class="panel-heading"><div><p class="eyebrow">RECENT ACTIVITY</p><h3>Search ledger</h3></div><button class="text-button" data-view="searches">View all →</button></div><div id="recent-searches" class="ledger"></div></section><section class="panel distribution-panel"><div class="panel-heading"><div><p class="eyebrow">RESULT DISTRIBUTION</p><h3>Signal composition</h3></div></div><div id="distribution" class="distribution"></div></section></div>
+			</section>
+			<section id="view-investigations" class="view"><div class="section-heading"><div><p class="eyebrow">CASE MANAGEMENT</p><h2>Investigations</h2></div><button class="button button-primary" id="new-case-button">+ New case</button></div><div id="investigation-list" class="case-grid"></div></section>
+			<section id="view-searches" class="view"><div class="section-heading"><div><p class="eyebrow">COLLECTION HISTORY</p><h2>Search history</h2></div></div><div class="panel table-panel"><div id="search-list" class="table-wrap"></div></div></section>
+			<section id="view-graph" class="view"><div class="section-heading"><div><p class="eyebrow">CORRELATION LAYER</p><h2>Identity graph</h2><p class="muted">Relationships extracted from completed Maigret searches.</p></div></div><div id="graph-canvas" class="graph-canvas"></div></section>
+		</main>
+	</div>
+	<div id="search-modal" class="modal" aria-hidden="true"><div class="modal-card"><button class="modal-close" data-close="search-modal" aria-label="Close">×</button><p class="eyebrow">NEW COLLECTION</p><h2>Start investigation</h2><form id="search-form"><label>Username<input name="username" required maxlength="200" placeholder="e.g. john_doe" autocomplete="off"></label><label>Case title <span class="optional">optional</span><input name="title" placeholder="Identity review"></label><details><summary>Advanced collection options</summary><div class="form-grid"><label>Sites to check<input name="top_sites" type="number" min="1" max="100000" value="500"></label><label>Request timeout<input name="timeout" type="number" min="1" max="120" value="10"></label><label class="check"><input name="recursive" type="checkbox" checked> Recursive extraction</label><label class="check"><input name="extract" type="checkbox" checked> Extract profile data</label><label class="check"><input name="all_sites" type="checkbox"> All available sites</label><label>Tags<input name="tags" placeholder="social, developer"></label></div></details><div class="form-actions"><button type="button" class="button button-quiet" data-close="search-modal">Cancel</button><button class="button button-primary" type="submit">Run Maigret scan ↗</button></div></form></div></div>
+	<div id="detail-modal" class="modal" aria-hidden="true"><div class="modal-card detail-card"><button class="modal-close" data-close="detail-modal" aria-label="Close">×</button><div id="detail-content"></div></div></div>
+	<div id="toast-region" class="toast-region" aria-live="polite"></div>
+	<script src="/static2/script.js"></script>
+</body>
+</html>
