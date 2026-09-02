@@ -576,6 +576,26 @@ def generate_report_template(is_pdf: bool):
     return template, css_content
 
 
+def _coerce_status_value(status_value: Any) -> Any:
+    """Normalize status values from DB-backed results and runtime objects.
+
+    The dashboard persists statuses as strings (for example, "Claimed"), while
+    Maigret's report templates compare against the enum values. Accept either
+    representation so report generation still marks found accounts correctly.
+    """
+    if isinstance(status_value, MaigretCheckStatus):
+        return status_value
+    if isinstance(status_value, str):
+        normalized = status_value.strip()
+        for candidate in MaigretCheckStatus:
+            if candidate.value == normalized or candidate.name == normalized:
+                return candidate
+            if candidate.value.lower() == normalized.lower():
+                return candidate
+        return status_value
+    return status_value
+
+
 def generate_report_context(username_results: list):
     brief_text = []
     usernames = {}
@@ -601,6 +621,10 @@ def generate_report_context(username_results: list):
             status = dictionary.get("status")
             if not status:  # FIXME: currently in case of timeout
                 continue
+
+            normalized_status = _coerce_status_value(getattr(status, "status", status))
+            if hasattr(status, "status"):
+                status.status = normalized_status
 
             if status.ids_data:
                 dictionary["ids_data"] = status.ids_data
@@ -659,7 +683,7 @@ def generate_report_context(username_results: list):
                         new_ids.append((u, utype))
                         usernames[u] = {"type": utype}
 
-            if status.status == MaigretCheckStatus.CLAIMED:
+            if normalized_status == MaigretCheckStatus.CLAIMED:
                 found_accounts += 1
                 dictionary["found"] = True
             else:
