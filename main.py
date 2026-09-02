@@ -1022,7 +1022,7 @@ def report(
             content = output.getvalue()
             headers = {
                 "Content-Disposition": f'{"inline" if preview else "attachment"}; filename="maigret-search-{search_id}.csv"'
-            }
+            } 
             return StreamingResponse(
                 iter([content]), media_type="text/csv", headers=headers
             )
