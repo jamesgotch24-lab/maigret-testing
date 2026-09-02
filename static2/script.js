@@ -212,7 +212,7 @@ async function showSearch(searchId) {
   try {
     const [search, results] = await Promise.all([
       api(`/searches/${searchId}`),
-      api(`/searches/${searchId}/results`),
+      api(`/searches/${searchId}/results?status=Claimed`),
     ]);
     const container = $("#detail-content");
     container.dataset.searchId = String(searchId);
