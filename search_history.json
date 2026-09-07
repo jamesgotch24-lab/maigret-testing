@@ -1,0 +1,59 @@
+{
+    "117": {
+        "id": 117,
+        "username": "superguy611",
+        "options": {
+            "username": "superguy611",
+            "tags": [],
+            "timeout": 15,
+            "top_sites": 500,
+            "all_sites": true,
+            "permute": false,
+            "cloudflare_bypass": false,
+            "id_type": "username",
+            "print_mode": "long",
+            "report_html": false,
+            "report_pdf": false,
+            "pdf_style": "default",
+            "report_json": true,
+            "report_csv": false,
+            "report_txt": false
+        },
+        "initiated_from": "gui",
+        "status": "completed",
+        "created_at": "2026-09-07 05:48:36",
+        "completed_at": "2026-09-07 05:48:36",
+        "total_sites": 0,
+        "checked_sites": 0,
+        "found_sites": 0,
+        "not_found_sites": 0,
+        "error_sites": 0,
+        "results": [],
+        "logs": [
+            "[*] Engine Executing: maigret superguy611 -a --timeout 15 --id-type username --json --folder reports",
+            "usage: maigret [-h] [--version] [--timeout TIMEOUT] [--retries RETRIES]",
+            "               [-n CONNECTIONS] [--dns-resolver {async,threaded}]",
+            "               [--no-recursion] [--no-extracting] [--enrich]",
+            "               [--id-type {username,yandex_public_id,gaia_id,vk_id,ok_id,wikimapia_uid,steam_id,uidme_uguid,yelp_userid,orcid,qq_id,bilibili_id}]",
+            "               [--permute] [--db DB_FILE] [--no-autoupdate] [--force-update]",
+            "               [--cookies-jar-file COOKIE_FILE] [--ignore-ids IGNORED_IDS]",
+            "               [--folderoutput PATH] [--proxy PROXY_URL]",
+            "               [--tor-proxy TOR_PROXY_URL] [--i2p-proxy I2P_PROXY_URL]",
+            "               [--with-domains] [--cloudflare-bypass] [-a] [--top-sites N]",
+            "               [--tags TAGS] [--exclude-tags EXCLUDE_TAGS]",
+            "               [--keywords KEYWORD [KEYWORD ...]] [--site SITE_NAME]",
+            "               [--use-disabled-sites] [--parse URL] [--submit URL]",
+            "               [--self-check] [--auto-disable] [--diagnose] [--stats]",
+            "               [--web [PORT]] [--print-not-found] [--print-errors] [--verbose]",
+            "               [--info] [--debug] [--no-color] [--no-progressbar] [-T] [-C]",
+            "               [-H] [-X] [-P] [-M] [-G] [--neo4j] [-J TYPE] [--ai]",
+            "               [--ai-model AI_MODEL] [--reports-sorting {default,data}]",
+            "               [USERNAMES ...]",
+            "maigret: error: argument -J/--json: expected one argument",
+            "\n[\u2713] Job #117 concluded. 0 matches verified. Reports saved."
+        ],
+        "reports_generated": [
+            "pdf"
+        ]
+    }
+}

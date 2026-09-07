@@ -1,319 +1,822 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Maigret | Intelligence Workspace</title>
-    <link
-      rel="icon"
-      href="/static2/maigret%20logo%20shield.png"
-      type="image/png"
-    />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/static2/styles.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <aside class="sidebar" id="sidebar">
-        <div class="sidebar-top">
-          <button
-            id="sidebar-toggle"
-            class="sidebar-toggle"
-            aria-label="Toggle navigation"
-          >
-            ☰
-          </button>
-          <a class="brand" href="#dashboard" data-view="dashboard"
-            ><img
-              class="brand-logo brand-logo-full"
-              src="/static2/maigret%20logo.png"
-              alt="Maigret" /><img
-              class="brand-logo brand-logo-shield"
-              src="/static2/maigret%20logo%20shield.png"
-              alt="Maigret shield"
-          /></a>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maigret OSINT Investigation Platform</title>
+    <style>
+        :root {
+            --bg-main: #060608;
+            --bg-panel: #0d0d11;
+            --bg-card: #13131a;
+            --text-main: #e2e8f0;
+            --text-dim: #718096;
+            --accent-gold: #eab308;
+            --accent-gold-hover: #facc15;
+            --accent-gold-dim: rgba(234, 179, 8, 0.15);
+            --border-color: #272732;
+            --status-green: #22c55e;
+            --status-red: #ef4444;
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-term: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(234, 179, 8, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(34, 197, 94, 0.02) 0%, transparent 50%);
+        }
+
+        .sidebar {
+            width: 260px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+            flex-shrink: 0;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .logo-container {
+            padding: 0 20px 25px 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-container img { width: 45px; height: auto; filter: drop-shadow(0 0 8px rgba(234, 179, 8, 0.4)); }
+        .logo-text h1 { color: #fff; font-size: 1.15rem; letter-spacing: 1.5px; text-transform: uppercase; }
+        .logo-text span { color: var(--accent-gold); font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; }
+
+        .nav-btn {
+            background: none; border: none; color: var(--text-dim); padding: 14px 22px;
+            text-align: left; font-size: 0.95rem; font-weight: 500; cursor: pointer;
+            transition: all 0.2s ease; border-left: 3px solid transparent; display: flex; align-items: center; gap: 12px;
+        }
+
+        .nav-btn:hover { color: var(--text-main); background-color: var(--accent-gold-dim); }
+        .nav-btn.active { border-left-color: var(--accent-gold); color: var(--accent-gold); background-color: var(--accent-gold-dim); }
+
+        .content { flex-grow: 1; padding: 25px 30px; overflow-y: auto; display: flex; flex-direction: column; position: relative; }
+        .tab-content { display: none; height: 100%; flex-direction: column; }
+        .tab-content.active { display: flex; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+        .view-header h2 { font-size: 1.5rem; font-weight: 700; color: #fff; letter-spacing: 1px; }
+
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .metric-card { 
+            background-color: var(--bg-card); border: 1px solid var(--border-color); 
+            border-radius: 10px; padding: 22px; transition: transform 0.2s ease, border-color 0.2s ease; 
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+            position: relative; overflow: hidden;
+        }
+        .metric-card::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .metric-card:hover::before { opacity: 1; }
+        .metric-card:hover { transform: translateY(-2px); border-color: var(--accent-gold); }
+        .metric-card h3 { color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+        .metric-card .value { color: var(--accent-gold); font-size: 2.2rem; font-weight: 800; font-family: var(--font-term); }
+
+        .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 25px; flex-grow: 1; }
+        .dash-panel { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 25px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .dash-panel h3 { color: var(--text-main); font-size: 1.1rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+        
+        .ticker-item { padding: 12px 0; border-bottom: 1px solid var(--border-color); font-family: var(--font-term); font-size: 0.85rem; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+        .ticker-item:last-child { border-bottom: none; }
+        .ticker-user { color: var(--accent-gold); font-weight: bold; }
+        
+        .diag-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-family: var(--font-term); font-size: 0.85rem; }
+        .diag-label { color: var(--text-dim); }
+        .diag-val { color: var(--status-green); }
+
+        .search-panel { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 25px; margin-bottom: 10px; }
+        .input-row { display: flex; gap: 15px; margin-bottom: 10px; }
+        .input-field { flex-grow: 1; background: #0d0d11; border: 1px solid var(--border-color); color: #fff; font-size: 0.95rem; padding: 10px 14px; border-radius: 6px; outline: none; }
+        .input-field:focus { border-color: var(--accent-gold); box-shadow: 0 0 8px rgba(234, 179, 8, 0.2); }
+        select.input-field { appearance: none; cursor: pointer; }
+
+        .btn-gold { background: var(--accent-gold); color: #000; font-weight: 700; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; text-transform: uppercase; font-size: 0.85rem; }
+        .btn-gold:hover { background: var(--accent-gold-hover); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); }
+        .btn-danger { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--status-red); color: var(--status-red); font-weight: bold; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+        .btn-danger:hover { background: var(--status-red); color: #fff; }
+
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; color: var(--text-dim); font-size: 0.85rem; }
+        .options-grid label { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer; }
+        .options-grid input[type="checkbox"] { accent-color: var(--accent-gold); }
+        .options-grid input[type="number"] { width: 80px; padding: 4px 8px; background: #0d0d11; border: 1px solid var(--border-color); color: #fff; border-radius: 4px; }
+
+        .table-container { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; flex-grow: 1; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.9rem; }
+        th { background-color: #121218; color: var(--text-dim); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+        .clickable-row { cursor: pointer; transition: background 0.2s; }
+        .clickable-row:hover { background-color: rgba(234, 179, 8, 0.05); }
+
+        .badge { padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; display: inline-block; }
+        .badge-running { background: rgba(234, 179, 8, 0.2); color: var(--accent-gold); animation: pulse 2s infinite; }
+        .badge-completed { background: rgba(34, 197, 94, 0.2); color: var(--status-green); }
+        .badge-cancelled { background: rgba(239, 68, 68, 0.2); color: var(--status-red); }
+
+        .terminal-wrapper { background-color: #050507; border: 1px solid var(--border-color); border-radius: 10px; display: flex; flex-direction: column; flex-grow: 1; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        .terminal-header { background-color: #101015; padding: 10px 18px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .terminal-title { font-family: var(--font-term); font-size: 0.85rem; font-weight: 700; color: var(--accent-gold); display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background-color: var(--status-green); display: inline-block; }
+        .status-dot.active { background-color: var(--accent-gold); box-shadow: 0 0 8px var(--accent-gold); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        .term-controls { display: flex; gap: 10px; align-items: center; }
+        .term-btn { background: #1b1b24; border: 1px solid var(--border-color); color: var(--text-dim); padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-family: var(--font-ui); transition: all 0.2s ease; }
+        .term-btn:hover { color: #fff; border-color: var(--accent-gold); }
+        .terminal-body { flex-grow: 1; padding: 18px; font-family: var(--font-term); overflow-y: auto; color: #d1d5db; font-size: 0.9rem; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+        .terminal-input-bar { background-color: #0b0b0f; border-top: 1px solid var(--border-color); padding: 12px 18px; display: flex; align-items: center; }
+        .terminal-prompt { color: var(--accent-gold); font-family: var(--font-term); font-weight: 700; margin-right: 12px; user-select: none; }
+        .terminal-input { background: transparent; border: none; color: #fff; font-family: var(--font-term); font-size: 0.95rem; flex-grow: 1; outline: none; }
+
+        .modal-backdrop { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(4px); justify-content: center; align-items: center; z-index: 999; }
+        .modal-card { background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; width: 90%; max-width: 900px; display: flex; flex-direction: column; position: relative; box-shadow: 0 0 40px rgba(234, 179, 8, 0.1); }
+        .modal-header { padding: 18px 24px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { color: var(--accent-gold); font-size: 1.2rem; }
+        .modal-close-x { background: none; border: none; color: var(--text-dim); font-size: 1.6rem; cursor: pointer; }
+        .modal-close-x:hover { color: #fff; }
+        .modal-body { padding: 24px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 20px; }
+        
+        .report-links { display: flex; gap: 10px; flex-wrap: wrap; }
+        .report-links a { background: #1b1b24; border: 1px solid var(--accent-gold); color: var(--accent-gold); padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 0.85rem; font-weight: bold; }
+        .report-links a:hover { background: var(--accent-gold); color: #000; }
+
+        .dossier-summary-box {
+            background: rgba(234, 179, 8, 0.05);
+            border: 1px solid var(--accent-gold-dim);
+            border-left: 4px solid var(--accent-gold);
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        a { color: var(--accent-gold); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <div class="logo-container">
+            <img src="/static/maigret%20logo%20shield.png" alt="Maigret Logo" onerror="this.src='/static/maigret%20logo.png'">
+            <div class="logo-text">
+                <h1>MAIGRET</h1>
+                <span>OSINT SUITE</span>
+            </div>
         </div>
-        <p class="eyebrow">INTELLIGENCE WORKSPACE</p>
-        <nav aria-label="Primary navigation">
-          <button class="nav-item active" data-view="dashboard">
-            <span>01</span><span class="nav-label">Overview</span>
-          </button>
-          <button class="nav-item" data-view="investigations">
-            <span>02</span><span class="nav-label">Investigations</span>
-          </button>
-          <button class="nav-item" data-view="searches">
-            <span>03</span><span class="nav-label">Search history</span>
-          </button>
-          <button class="nav-item" data-view="terminal">
-            <span>04</span><span class="nav-label">Terminal</span>
-          </button>
-        </nav>
-        <div class="sidebar-foot">
-          <span class="pulse"></span><span>Engine online</span
-          ><small>Maigret 0.6.4</small>
+        <button class="nav-btn active" onclick="switchTab('overview')">◈ Competitive Overview</button>
+        <button class="nav-btn" onclick="switchTab('search')">⌕ Initiate Scan</button>
+        <button class="nav-btn" onclick="switchTab('searches')">◷ Operations History</button>
+        <button class="nav-btn" onclick="switchTab('terminal')">⌨ Terminal Console</button>
+        <button class="nav-btn" onclick="switchTab('reports')">📄 Generated Reports</button>
+    </div>
+
+    <div class="content">
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="view-header"><h2>Global Intelligence Metrics</h2></div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h3>Total Investigations</h3>
+                    <div class="value" id="metric-searches">0</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Sites Supported</h3>
+                    <div class="value">~3000</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Active Operations</h3>
+                    <div class="value" id="metric-tasks">0</div>
+                </div>
+                <div class="metric-card">
+                    <h3>Profiles Uncovered</h3>
+                    <div class="value" id="metric-found">0</div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dash-panel">
+                    <h3>Infrastructure Mapping Stream</h3>
+                    <div id="overview-ticker" style="overflow-y: auto; flex-grow: 1; padding-right: 10px;">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+                <div class="dash-panel" style="background-color: #050507;">
+                    <h3 style="color: var(--accent-gold); border-color: #333;">Engine Diagnostics</h3>
+                    <div class="diag-row"><span class="diag-label">WebSocket Uplink:</span> <span class="diag-val" id="diag-ws">CONNECTED</span></div>
+                    <div class="diag-row"><span class="diag-label">Engine Status:</span> <span class="diag-val" id="diag-status">STANDBY</span></div>
+                    <div class="diag-row"><span class="diag-label">Subprocess Buffer:</span> <span class="diag-val" style="color: var(--accent-gold);">10 MB</span></div>
+                    <div class="diag-row"><span class="diag-label">Data Persistence:</span> <span class="diag-val">ACTIVE</span></div>
+                    
+                    <div style="margin-top: 20px; border-top: 1px dashed #333; padding-top: 15px;">
+                        <span style="color: var(--text-dim); font-size: 0.75rem; text-transform: uppercase;">Recent Target Categories</span>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;">
+                            <span class="badge" style="background: #272732;">DEVELOPMENT</span>
+                            <span class="badge" style="background: #272732;">FORUM</span>
+                            <span class="badge" style="background: #272732;">CRYPTO</span>
+                            <span class="badge" style="background: #272732;">SOCIAL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-      </aside>
-      <main class="main-content">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow" id="view-kicker">FIELD NOTES / 01</p>
-            <h1 id="view-title">Investigation overview</h1>
-          </div>
-          <div class="top-actions">
-            <button
-              class="icon-button"
-              id="theme-toggle"
-              aria-label="Toggle dark mode"
-              title="Toggle dark mode"
-            >
-              ☾</button
-            ><button
-              class="icon-button"
-              id="refresh-button"
-              aria-label="Refresh dashboard"
-              title="Refresh"
-            >
-              ↻</button
-            ><button class="button button-primary" id="new-search-button">
-              + Start investigation
-            </button>
-          </div>
-        </header>
-        <section id="view-dashboard" class="view active-view">
-          <div class="hero-strip">
-            <div>
-              <p class="eyebrow">LIVE COLLECTION CONSOLE</p>
-              <h2>Find the signal<br /><em>behind a username.</em></h2>
-              <p class="hero-copy">
-                Run a real Maigret scan across public platforms and preserve the
-                evidence in one case file.
-              </p>
-            </div>
-            <div class="hero-coordinate">
-              45° 31' N<br /><span>COLLECTION READY</span>
-            </div>
-          </div>
-          <div id="metrics" class="metric-grid" aria-live="polite"></div>
-          <div class="workspace-grid">
-            <section class="panel activity-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">RECENT ACTIVITY</p>
-                  <h3>Search ledger</h3>
+
+        <!-- GUI Search Tab -->
+        <div id="search" class="tab-content">
+            <div class="view-header"><h2>Initiate Competitive Intelligence Scan</h2></div>
+            <div class="search-panel">
+                <div class="input-row">
+                    <input type="text" id="gui-username-input" class="input-field" placeholder="Enter target username (e.g. john_doe)..." />
+                    <button class="btn-gold" onclick="launchGuiSearch()">Start Investigation</button>
                 </div>
-                <button class="text-button" data-view="searches">
-                  View all →
-                </button>
-              </div>
-              <div id="recent-searches" class="ledger"></div>
-            </section>
-            <section class="panel distribution-panel">
-              <div class="panel-heading">
-                <div>
-                  <p class="eyebrow">RESULT DISTRIBUTION</p>
-                  <h3>Signal composition</h3>
+                <div style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 20px;" id="site-count-label">Searching top 500 sites</div>
+                <div class="options-grid">
+                    <div>
+                        <label style="color: var(--accent-gold); font-weight: bold;">Target Range</label>
+                        <label><input type="checkbox" id="opt-allsites" onchange="updateSiteCountText()"> Search ALL Supported Sites (~3000+)</label>
+                        <label>Or Top Sites: <input type="number" id="opt-top" value="500" oninput="updateSiteCountText()"></label>
+                        <label>ID Type: 
+                            <select id="opt-idtype" class="input-field" style="width: auto; padding: 4px 8px;">
+                                <option value="username">Username</option>
+                                <option value="yandex_public_id">Yandex Public ID</option>
+                                <option value="uid">UID</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label style="color: var(--accent-gold); font-weight: bold;">Filters & Modifiers</label>
+                        <label><input type="checkbox" id="opt-permute"> Permute Username Variants</label>
+                        <label><input type="checkbox" id="opt-cf-bypass"> Cloudflare Bypass</label>
+                        <label>Timeout (s): <input type="number" id="opt-timeout" value="15"></label>
+                        <label>Tags: <input type="text" id="opt-tags" class="input-field" style="width: 140px; padding: 4px 8px;" placeholder="e.g. photo,dating"></label>
+                    </div>
+                    <div>
+                        <label style="color: var(--accent-gold); font-weight: bold;">Generated Reports</label>
+                        <label><input type="checkbox" id="rep-html" checked> HTML Report</label>
+                        <label>
+                            <input type="checkbox" id="rep-pdf" checked onchange="togglePdfOptions()"> PDF Report
+                        </label>
+                        <div id="pdf-options-container" style="margin-left: 25px; margin-bottom: 8px;">
+                            <select id="opt-pdf-style" class="input-field" style="width: auto; padding: 4px 8px; font-size: 0.8rem;">
+                                <option value="default">Default Maigret Style</option>
+                                <option value="internal">Internal Format (Dossier)</option>
+                            </select>
+                        </div>
+                        <label><input type="checkbox" id="rep-json"> JSON Export</label>
+                        <label><input type="checkbox" id="rep-csv"> CSV Export</label>
+                        <label><input type="checkbox" id="rep-txt"> TXT Export</label>
+                    </div>
                 </div>
-              </div>
-              <div id="distribution" class="distribution"></div>
-            </section>
-          </div>
-        </section>
-        <section id="view-investigations" class="view">
-          <div class="section-heading">
-            <div><p class="eyebrow">CASE MANAGEMENT</p></div>
-            <button class="button button-primary" id="new-case-button">
-              + New case
-            </button>
-          </div>
-          <div id="investigation-list" class="case-grid"></div>
-        </section>
-        <section id="view-searches" class="view">
-          <div class="section-heading">
-            <div><p class="eyebrow">COLLECTION HISTORY</p></div>
-          </div>
-          <div class="panel table-panel">
-            <div id="search-list" class="table-wrap"></div>
-          </div>
-        </section>
-        <section id="view-terminal" class="view">
-          <div class="section-heading">
-            <div><p class="eyebrow">COMMAND CONSOLE</p></div>
-          </div>
-          <div class="panel terminal-panel">
-            <div class="terminal-header">
-              <div class="terminal-window-controls">
-                <span class="terminal-dot terminal-red"></span
-                ><span class="terminal-dot terminal-yellow"></span
-                ><span class="terminal-dot terminal-green"></span>
-              </div>
-              <div class="terminal-title">maigret@workspace</div>
             </div>
-            <div id="terminal-output" class="terminal-output">
-              <div class="terminal-line">
-                <span class="terminal-prompt">$</span
-                ><span class="terminal-command">python -m maigret --help</span>
-              </div>
+            
+            <div class="view-header" style="margin-top: 10px;">
+                <h2>Live Investigation Output</h2>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label style="font-size: 0.85rem; color: var(--text-dim);">Print Mode:</label>
+                    <select id="opt-print-mode" class="input-field" style="padding: 4px 8px; font-size: 0.85rem; width: auto;">
+                        <option value="long">Long Print (Show All)</option>
+                        <option value="fast">Fast Print (Matches Only)</option>
+                    </select>
+                </div>
             </div>
-            <form id="terminal-form" class="terminal-form">
-              <span class="terminal-prompt">$</span
-              ><input
-                id="terminal-input"
-                name="command"
-                type="text"
-                autocomplete="off"
-                spellcheck="false"
-                placeholder="Run a Maigret command..."
-                aria-label="Terminal command"
-              /><button type="submit" class="button button-primary">Run</button>
-            </form>
-          </div>
-        </section>
-      </main>
-    </div>
-    <div id="search-modal" class="modal" aria-hidden="true">
-      <div class="modal-card">
-        <button
-          class="modal-close"
-          data-close="search-modal"
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <p class="eyebrow">NEW COLLECTION</p>
-        <h2>Start investigation</h2>
-        <form id="search-form">
-          <label
-            >Username<input
-              name="username"
-              required
-              maxlength="200"
-              placeholder="e.g. john_doe"
-              autocomplete="off" /></label
-          ><label
-            >Case title <span class="optional">optional</span
-            ><input name="title" placeholder="Identity review" /></label
-          ><label
-            >Existing investigation<select name="investigation_id">
-              <option value="">Create a new investigation</option>
-            </select></label
-          >
-          <details open>
-            <summary>Advanced collection options</summary>
-            <div class="form-grid">
-              <label
-                >Sites to check<input
-                  name="top_sites"
-                  type="number"
-                  min="1"
-                  max="100000"
-                  value="500" /></label
-              ><label
-                >Request timeout<input
-                  name="timeout"
-                  type="number"
-                  min="1"
-                  max="120"
-                  value="10" /></label
-              ><label
-                >Report format<select name="report_format">
-                  <option value="json">JSON</option>
-                  <option value="csv">CSV</option>
-                  <option value="html">HTML</option>
-                  <option value="txt">TXT</option>
-                  <option value="md">Markdown</option>
-                  <option value="pdf">PDF</option>
-                </select></label
-              ><label class="check"
-                ><input name="all_sites" type="checkbox" /> All available
-                sites</label
-              ><label class="check"
-                ><input name="recursive" type="checkbox" checked /> Recursive
-                extraction</label
-              ><label class="check"
-                ><input name="extract" type="checkbox" checked /> Extract
-                profile data</label
-              ><label class="check"
-                ><input name="permute" type="checkbox" /> Permute
-                usernames</label
-              ><label class="check"
-                ><input name="check_domains" type="checkbox" /> Check
-                domains</label
-              ><label class="check"
-                ><input name="print_not_found" type="checkbox" /> Print
-                not-found results</label
-              ><label class="check"
-                ><input name="print_errors" type="checkbox" /> Print
-                errors</label
-              ><label class="check"
-                ><input name="verbose" type="checkbox" /> Verbose output</label
-              ><label class="check"
-                ><input name="no_progressbar" type="checkbox" /> Hide
-                progressbar</label
-              ><label class="check"
-                ><input name="use_disabled_sites" type="checkbox" /> Include
-                disabled sites</label
-              ><label
-                >Tags<input
-                  name="tags"
-                  placeholder="social, developer" /></label
-              ><label
-                >Excluded Tags<input
-                  name="excluded_tags"
-                  placeholder="gaming, porn" /></label
-              ><label
-                >Site list<input
-                  name="site_list"
-                  placeholder="instagram, x, github" /></label
-              ><label
-                >Keywords<input
-                  name="keywords"
-                  placeholder="python, dev, engineer" /></label
-              ><label
-                >Proxy URL<input
-                  name="proxy"
-                  placeholder="socks5://127.0.0.1:1080" /></label
-              ><label
-                >Tor proxy URL<input
-                  name="tor_proxy"
-                  placeholder="socks5://127.0.0.1:9050" /></label
-              ><label
-                >I2P proxy URL<input
-                  name="i2p_proxy"
-                  placeholder="http://127.0.0.1:4444"
-              /></label>
+            <div id="gui-live-output" class="terminal-body" style="background-color: #050507; border: 1px solid var(--border-color); border-radius: 10px; flex-grow: 1; min-height: 250px;">
+                <span style="color: var(--text-dim);">Configure parameters above and initiate search to view engine stdout here...</span>
             </div>
-          </details>
-          <div class="form-actions">
-            <button
-              type="button"
-              class="button button-quiet"
-              data-close="search-modal"
-            >
-              Cancel</button
-            ><button class="button button-primary" type="submit">
-              Run Maigret scan ↗
-            </button>
-          </div>
-        </form>
-      </div>
+        </div>
+
+        <!-- Search History Tab -->
+        <div id="searches" class="tab-content">
+            <div class="view-header"><h2>Operations History</h2></div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Target Username</th>
+                            <th>Timestamp</th>
+                            <th>Returned Accounts</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Terminal Tab -->
+        <div id="terminal" class="tab-content">
+            <div class="view-header"><h2>Maigret Command Console</h2></div>
+            <div class="terminal-wrapper">
+                <div class="terminal-header">
+                    <div class="terminal-title">
+                        <span class="status-dot" id="term-status-dot"></span>
+                        <span id="term-status-text">MAIGRET ENGINE: READY</span>
+                    </div>
+                    <div class="term-controls">
+                        <button class="term-btn" onclick="clearTerminal()">Clear</button>
+                        <button class="term-btn" style="color: var(--status-red); border-color: rgba(239,68,68,0.3);" onclick="cancelActiveSearch()">Cancel Search</button>
+                    </div>
+                </div>
+                <div class="terminal-body" id="term-output" onclick="document.getElementById('term-input').focus()">MAIGRET OSINT FRAMEWORK v3.2.0 - INTERACTIVE CONSOLE
+Unified with Dashboard Backend. All commands must begin with 'maigret'.
+</div>
+                <div class="terminal-input-bar">
+                    <span class="terminal-prompt">$</span>
+                    <input type="text" id="term-input" class="terminal-input" autocomplete="off" spellcheck="false" autofocus />
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Tab -->
+        <div id="reports" class="tab-content">
+            <div class="view-header"><h2>Generated Reports Viewer</h2></div>
+            <div style="display: flex; gap: 20px; height: 100%; flex-grow: 1; min-height: 500px;">
+                <div style="width: 320px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;" id="reports-list-container">
+                    <!-- Populated via JS -->
+                </div>
+                <!-- Swapped iframe for a pure container to inject <embed> dynamically -->
+                <div id="main-report-container" style="flex-grow: 1; background: #fff; border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; display: flex; align-items: center; justify-content: center; color: #888;">
+                    Select a report from the list to view it here.
+                </div>
+            </div>
+        </div>
     </div>
-    <div id="detail-modal" class="modal" aria-hidden="true">
-      <div class="modal-card detail-card">
-        <button
-          class="modal-close"
-          data-close="detail-modal"
-          aria-label="Close"
-        >
-          ×
-        </button>
-        <div id="detail-content"></div>
-      </div>
+
+    <!-- Investigation Detail Modal -->
+    <div class="modal-backdrop" id="investigationModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="inv-modal-title">Investigation Details</h3>
+                <button class="modal-close-x" onclick="closeModal('investigationModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="inv-modal-stats" style="display: flex; gap: 25px; font-family: var(--font-term); font-size: 0.9rem;"></div>
+                <div id="inv-report-links" class="report-links"></div>
+                <div id="inv-summary-container"></div>
+                
+                <!-- Dedicated Container for viewing reports spawned inside the modal -->
+                <div id="inv-report-viewer-container" style="flex-grow: 1; min-height: 500px; border: 1px solid var(--border-color); border-radius: 8px; background: #fff; display: none; overflow: hidden;"></div>
+            </div>
+        </div>
     </div>
-    <div id="toast-region" class="toast-region" aria-live="polite"></div>
-    <script src="/static2/script.js"></script>
-  </body>
+
+    <script>
+        let terminalHistory = [];
+        let historyIndex = -1;
+        let ws = null;
+        let guiActiveJobId = null; 
+
+        // Modals - Click outside to close safely
+        document.querySelectorAll('.modal-backdrop').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal(this.id);
+                }
+            });
+        });
+
+        function updateSiteCountText() {
+            const isAll = document.getElementById('opt-allsites').checked;
+            const top = document.getElementById('opt-top').value;
+            const label = document.getElementById('site-count-label');
+            if (isAll) {
+                label.innerText = "Searching all supported sites (~3000+)";
+            } else {
+                label.innerText = `Searching top ${top || 500} sites`;
+            }
+        }
+
+        function togglePdfOptions() {
+            const isChecked = document.getElementById('rep-pdf').checked;
+            document.getElementById('pdf-options-container').style.display = isChecked ? 'block' : 'none';
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            const targetBtn = Array.from(document.querySelectorAll('.nav-btn')).find(b => b.getAttribute('onclick').includes(tabId));
+            if (targetBtn) targetBtn.classList.add('active');
+            if (tabId === 'terminal') document.getElementById('term-input').focus();
+        }
+
+        function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
+        
+        function closeModal(modalId) { 
+            document.getElementById(modalId).style.display = 'none'; 
+            const invContainer = document.getElementById('inv-report-viewer-container');
+            if (invContainer) {
+                invContainer.innerHTML = "";
+                invContainer.style.display = "none";
+            }
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws/terminal`);
+
+            ws.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                if (data.type === "terminal_log") {
+                    appendTerminalLine(data.line);
+                    if (data.job_id === guiActiveJobId) {
+                        appendGuiLine(data.line);
+                    }
+                } else if (data.type === "job_status") {
+                    updateJobUI(data.job);
+                    loadOverviewData();
+                    loadHistoryData();
+                }
+            };
+            ws.onclose = function () { 
+                document.getElementById('diag-ws').innerText = "DISCONNECTED";
+                document.getElementById('diag-ws').style.color = "var(--status-red)";
+                setTimeout(connectWebSocket, 2000); 
+            };
+            ws.onopen = function () {
+                document.getElementById('diag-ws').innerText = "CONNECTED";
+                document.getElementById('diag-ws').style.color = "var(--status-green)";
+            };
+        }
+
+        function updateJobUI(job) {
+            const dot = document.getElementById('term-status-dot');
+            const text = document.getElementById('term-status-text');
+            const diagStat = document.getElementById('diag-status');
+            
+            if (job.status === "running") {
+                activeJobId = job.id;
+                dot.className = "status-dot active";
+                text.innerText = `MAIGRET ENGINE: RUNNING (JOB #${job.id} - ${job.username})`;
+                if (diagStat) {
+                    diagStat.innerText = `PROCESSING #${job.id}`;
+                    diagStat.style.color = "var(--accent-gold)";
+                }
+            } else {
+                activeJobId = null;
+                dot.className = "status-dot";
+                text.innerText = "MAIGRET ENGINE: READY";
+                if (diagStat) {
+                    diagStat.innerText = "STANDBY";
+                    diagStat.style.color = "var(--status-green)";
+                }
+            }
+        }
+
+        function formatLogLine(line) {
+            if (line.includes("FOUND") && !line.includes("NOT FOUND")) return `<span style="color: var(--accent-gold); font-weight: bold;">${line}</span>`;
+            if (line.includes("NOT FOUND")) return `<span style="color: #64748b;">${line}</span>`;
+            if (line.startsWith("[!]")) return `<span style="color: var(--status-red);">${line}</span>`;
+            if (line.startsWith("[✓]")) return `<span style="color: var(--status-green); font-weight: bold;">${line}</span>`;
+            return line;
+        }
+
+        function appendTerminalLine(line) {
+            const term = document.getElementById('term-output');
+            term.innerHTML += "\n" + formatLogLine(line);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function appendGuiLine(line) {
+            const mode = document.getElementById('opt-print-mode').value;
+            // Strict Fast Print logic
+            if (mode === 'fast') {
+                if (line.includes("NOT FOUND") || line.includes("Checking") || line.match(/\[\?\]/)) return;
+            }
+
+            const guiTerm = document.getElementById('gui-live-output');
+            guiTerm.innerHTML += "\n" + formatLogLine(line);
+            guiTerm.scrollTop = guiTerm.scrollHeight;
+        }
+
+        async function launchGuiSearch() {
+            const username = document.getElementById('gui-username-input').value.trim();
+            if (!username) return;
+
+            const tagsStr = document.getElementById('opt-tags').value.trim();
+            const tags = tagsStr ? tagsStr.split(',') : [];
+
+            document.getElementById('gui-live-output').innerHTML = "";
+
+            try {
+                const payload = {
+                    username: username,
+                    tags: tags,
+                    timeout: parseInt(document.getElementById('opt-timeout').value || '15'),
+                    top_sites: parseInt(document.getElementById('opt-top').value || '500'),
+                    all_sites: document.getElementById('opt-allsites').checked,
+                    permute: document.getElementById('opt-permute').checked,
+                    cloudflare_bypass: document.getElementById('opt-cf-bypass').checked,
+                    id_type: document.getElementById('opt-idtype').value,
+                    report_html: document.getElementById('rep-html').checked,
+                    report_pdf: document.getElementById('rep-pdf').checked,
+                    pdf_style: document.getElementById('opt-pdf-style').value,
+                    report_json: document.getElementById('rep-json').checked,
+                    report_csv: document.getElementById('rep-csv').checked,
+                    report_txt: document.getElementById('rep-txt').checked,
+                    print_mode: document.getElementById('opt-print-mode').value
+                };
+
+                const res = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    guiActiveJobId = data.job_id;
+                    appendGuiLine(`[*] GUI Investigation Initiated for target '${username}' (Job #${data.job_id})`);
+                } else {
+                    alert(data.detail || "Error starting search");
+                }
+            } catch (err) {
+                alert("Failed to connect to backend engine.");
+            }
+        }
+
+        async function deleteJob(event, jobId) {
+            event.stopPropagation(); 
+            if (!confirm(`Permanently delete Investigation #${jobId}?`)) return;
+            try {
+                await fetch(`/api/jobs/${jobId}`, { method: 'DELETE' });
+                loadOverviewData();
+                loadHistoryData();
+                document.getElementById('main-report-container').innerHTML = "Select a report from the list to view it here.";
+            } catch (err) { alert("Failed to delete job."); }
+        }
+
+        const termInput = document.getElementById('term-input');
+        termInput.addEventListener('keydown', async function (e) {
+            if (e.key === 'Enter') {
+                const cmd = termInput.value.trim();
+                if (!cmd) return;
+                terminalHistory.push(cmd);
+                historyIndex = terminalHistory.length;
+
+                appendTerminalLine(`\n<span style="color: var(--accent-gold);">$</span> ${cmd}`);
+                termInput.value = '';
+
+                if (cmd.toLowerCase() === 'clear') { document.getElementById('term-output').innerHTML = ""; return; }
+
+                try {
+                    const res = await fetch('/api/terminal/execute', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ command: cmd })
+                    });
+                    const data = await res.json();
+                    if (data.output) appendTerminalLine(data.output);
+                    if (data.action === "open_investigation") viewInvestigation(data.job_id);
+                } catch (err) { appendTerminalLine("[!] Communication error with backend."); }
+            } else if (e.key === 'ArrowUp') {
+                if (historyIndex > 0) { historyIndex--; termInput.value = terminalHistory[historyIndex]; }
+                e.preventDefault();
+            } else if (e.key === 'ArrowDown') {
+                if (historyIndex < terminalHistory.length - 1) { historyIndex++; termInput.value = terminalHistory[historyIndex]; }
+                else { historyIndex = terminalHistory.length; termInput.value = ''; }
+                e.preventDefault();
+            }
+        });
+
+        async function cancelActiveSearch() { await fetch(`/api/jobs/${activeJobId}/cancel`, { method: 'POST' }); }
+        function clearTerminal() { document.getElementById('term-output').innerHTML = "Console cleared.\n"; }
+
+        async function loadOverviewData() {
+            const res = await fetch('/api/overview');
+            const data = await res.json();
+            document.getElementById('metric-searches').innerText = data.total_searches;
+            document.getElementById('metric-tasks').innerText = data.active_tasks;
+            document.getElementById('metric-found').innerText = data.total_found || 0;
+
+            const histRes = await fetch('/api/history');
+            const history = await histRes.json();
+            const ticker = document.getElementById('overview-ticker');
+            const recentBody = document.getElementById('overview-recent-body');
+            
+            ticker.innerHTML = '';
+            recentBody.innerHTML = '';
+            
+            history.forEach(job => {
+                // Ticker logic
+                ticker.innerHTML += `
+                    <div class="ticker-item clickable-row" onclick="viewInvestigation(${job.id})">
+                        <div>
+                            <span style="color: #4b5563;">[ID:${job.id}]</span> 
+                            <span class="ticker-user">${job.username}</span> 
+                            <span class="badge badge-${job.status}" style="font-size: 0.6rem; padding: 2px 6px;">${job.status}</span>
+                        </div>
+                        <div style="color: var(--accent-gold); font-weight: bold;">${job.found_sites || 0} HITS</div>
+                    </div>
+                `;
+
+                // Overview table logic
+                recentBody.innerHTML += `
+                    <tr class="clickable-row" onclick="viewInvestigation(${job.id})">
+                        <td style="font-family: var(--font-term); color: var(--accent-gold);">#${job.id}</td>
+                        <td style="font-weight: 600;">${job.username}</td>
+                        <td>${job.created_at}</td>
+                        <td><span class="badge badge-${job.status}">${job.status}</span></td>
+                        <td style="font-family: var(--font-term); font-weight: 700; color: var(--accent-gold);">${job.found_sites || 0}</td>
+                        <td><button class="btn-danger" onclick="deleteJob(event, ${job.id})">Delete</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        // New function to properly inject PDFs or HTML files avoiding iframe restrictions
+        function displayMainReport(url, isPdf) {
+            const container = document.getElementById('main-report-container');
+            if (isPdf) {
+                container.innerHTML = `<embed src="${url}" type="application/pdf" width="100%" height="100%" />`;
+            } else {
+                container.innerHTML = `<iframe src="${url}" style="width:100%; height:100%; border:none; background:#fff;"></iframe>`;
+            }
+        }
+
+        async function loadHistoryData() {
+            const res = await fetch('/api/history');
+            const history = await res.json();
+            const tbody = document.getElementById('history-table-body');
+            const reportsContainer = document.getElementById('reports-list-container');
+            
+            tbody.innerHTML = '';
+            reportsContainer.innerHTML = '';
+
+            history.forEach(job => {
+                tbody.innerHTML += `
+                    <tr class="clickable-row" onclick="viewInvestigation(${job.id})">
+                        <td style="font-family: var(--font-term); color: var(--accent-gold);">#${job.id}</td>
+                        <td style="font-weight: 600;">${job.username}</td>
+                        <td>${job.created_at}</td>
+                        <td style="font-family: var(--font-term); font-weight: 700; color: var(--accent-gold);">${job.found_sites || 0}</td>
+                        <td><span class="badge badge-${job.status}">${job.status}</span></td>
+                        <td><button class="btn-danger" onclick="deleteJob(event, ${job.id})">Delete</button></td>
+                    </tr>
+                `;
+
+                if (job.reports_generated && job.reports_generated.length > 0) {
+                    const hasPdf = job.reports_generated.includes('pdf');
+                    const hasInternal = job.reports_generated.includes('internal_html');
+                    const hasHtml = job.reports_generated.includes('html');
+                    
+                    let targetReport = "";
+                    let isPdf = false;
+
+                    if (hasInternal) {
+                        targetReport = `/reports/job_${job.id}/report_${job.username}_internal.html`;
+                    } else if (hasPdf) {
+                        targetReport = `/reports/job_${job.id}/report_${job.username}.pdf`;
+                        isPdf = true;
+                    } else if (hasHtml) {
+                        targetReport = `/reports/job_${job.id}/report_${job.username}.html`;
+                    }
+
+                    if (targetReport) {
+                        reportsContainer.innerHTML += `
+                            <div class="metric-card clickable-row" style="padding: 15px;" onclick="displayMainReport('${targetReport}', ${isPdf})">
+                                <h4 style="color: var(--accent-gold); margin-bottom: 5px;">${job.username}</h4>
+                                <div style="font-size: 0.8rem; color: var(--text-dim);">Job #${job.id} • ${job.created_at.split(' ')[0]}</div>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        }
+
+        async function viewInvestigation(jobId) {
+            const res = await fetch(`/api/jobs/${jobId}`);
+            const job = await res.json();
+            document.getElementById('inv-modal-title').innerText = `Investigation Dossier #${job.id}: ${job.username}`;
+            document.getElementById('inv-modal-stats').innerHTML = `
+                <div>STATUS: <span class="badge badge-${job.status}">${job.status}</span></div>
+                <div>RETURNED ACCOUNTS: <span style="color: var(--accent-gold);">${job.found_sites || 0}</span></div>
+            `;
+
+            const summaryContainer = document.getElementById('inv-summary-container');
+            const viewerContainer = document.getElementById('inv-report-viewer-container');
+            
+            viewerContainer.innerHTML = '';
+            viewerContainer.style.display = 'none';
+            
+            let summaryHtml = "";
+            let linksHtml = "";
+            let inSummary = false;
+            let foundLines = [];
+
+            // Extract summary and links
+            job.logs.forEach(line => {
+                if (line.includes("Short text report:")) inSummary = true;
+                if (inSummary) {
+                    if (line.includes("Search by username") || 
+                        line.includes("Found target") || 
+                        line.includes("Extended info") || 
+                        line.includes("Countries:") || 
+                        line.includes("Interests")) {
+                        summaryHtml += `<div style="color: #cbd5e1; font-family: var(--font-term); font-size: 0.85rem; margin-bottom: 4px;">&gt; ${line}</div>`;
+                    }
+                    if (line.includes("===") || line.startsWith("[✓]")) inSummary = false;
+                }
+
+                if (line.includes("FOUND") && !line.includes("NOT FOUND") && !line.includes("Starting")) {
+                    foundLines.push(line);
+                }
+            });
+
+            if (foundLines.length === 0) {
+                linksHtml = "<span style='color: var(--text-dim);'>No returned accounts verified in logs.</span>";
+            } else {
+                foundLines.forEach(line => {
+                    const parts = line.split("->");
+                    if (parts.length > 1) {
+                        const url = parts[1].trim();
+                        const prefix = parts[0].trim().replace('[+]', '').replace('FOUND', '').trim();
+                        linksHtml += `<div style="margin-bottom: 6px;"><span style="color: var(--accent-gold); font-weight: bold; width: 140px; display: inline-block;">${prefix}</span> <a href="${url}" target="_blank">${url}</a></div>`;
+                    } else {
+                        linksHtml += `<div style="margin-bottom: 6px;"><span style="color: var(--accent-gold); font-weight: bold;">${line}</span></div>`;
+                    }
+                });
+            }
+
+            summaryContainer.innerHTML = `
+                <div class="dossier-summary-box">
+                    <h4 style="color: var(--accent-gold); margin-bottom: 12px; font-size: 1.1rem;">Dossier Intelligence Summary</h4>
+                    ${summaryHtml}
+                    <hr style="border:0; border-top:1px dashed var(--border-color); margin: 20px 0;">
+                    <h4 style="color: var(--accent-gold); margin-bottom: 12px; font-size: 1.1rem;">Returned Accounts</h4>
+                    <div class="terminal-body" style="background: transparent; padding: 0; height: auto; max-height: 50vh; overflow-y: auto;">
+                        ${linksHtml}
+                    </div>
+                </div>
+            `;
+
+            const linksDiv = document.getElementById('inv-report-links');
+            linksDiv.innerHTML = '';
+
+            if (job.reports_generated && job.reports_generated.length > 0) {
+                job.reports_generated.forEach(rtype => {
+                    let path = `/reports/job_${job.id}/report_${job.username}.${rtype}`;
+                    let displayName = rtype.toUpperCase();
+                    let isPdf = false;
+                    
+                    if (rtype === "internal_html") {
+                        path = `/reports/job_${job.id}/report_${job.username}_internal.html`;
+                        displayName = "INTERNAL DOSSIER";
+                    } else if (rtype === "pdf") {
+                        isPdf = true;
+                    }
+                    
+                    const a = document.createElement('a');
+                    a.href = path;
+                    a.innerText = `Download ${displayName}`;
+                    a.setAttribute('download', '');
+                    
+                    if (rtype === 'html' || rtype === 'pdf' || rtype === 'internal_html') {
+                        const viewBtn = document.createElement('a');
+                        viewBtn.href = "#";
+                        viewBtn.innerText = `View ${displayName}`;
+                        viewBtn.onclick = (e) => { 
+                            e.preventDefault();
+                            if(isPdf) {
+                                viewerContainer.innerHTML = `<embed src="${path}" type="application/pdf" width="100%" height="100%" />`;
+                            } else {
+                                viewerContainer.innerHTML = `<iframe src="${path}" style="width:100%; height:100%; border:none; background:#fff;"></iframe>`;
+                            }
+                            viewerContainer.style.display = 'block'; 
+                        };
+                        linksDiv.appendChild(viewBtn);
+                    }
+                    linksDiv.appendChild(a);
+                });
+            }
+            openModal('investigationModal');
+        }
+
+        window.onload = function () { 
+            connectWebSocket(); 
+            loadOverviewData(); 
+            loadHistoryData(); 
+            updateSiteCountText(); 
+        };
+    </script>
+</body>
 </html>
