@@ -15,7 +15,7 @@ from pydantic import BaseModel
 DB_FILE = "search_history.json"
 
 # ==============================================================================
-# Job & Investigation Models
+# Job & Investigation Models 
 # ==============================================================================
 
 class InvestigationJob:
